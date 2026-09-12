@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ledger</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<meta name="theme-color" content="#1F3A3D">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1F3A3D;
+    --ink-soft:#3C5457;
+    --paper:#F3F4F0;
+    --paper-raised:#FFFFFF;
+    --hair:#DAD9D2;
+    --brass:#B08D57;
+    --good:#3F6C51;
+    --bad:#A8452F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+    min-height:100vh;
+  }
+  h1,h2,.num{font-family:'Source Serif 4',serif;}
+
+  header{
+    padding:calc(20px + env(safe-area-inset-top)) 20px 18px;
+    background:var(--ink);
+    color:var(--paper);
+    position:relative;
+  }
+  .brand{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:22px;
+  }
+  .brand-name{font-size:15px;letter-spacing:.02em;color:var(--brass);font-weight:500;}
+  .icon-btn{
+    background:none;border:none;color:var(--paper);opacity:.85;
+    padding:6px;cursor:pointer;
+  }
+  .balance-label{font-size:13px;color:#B9C4C4;margin-bottom:4px;}
+  .balance{font-size:44px;font-weight:600;line-height:1;}
+  .balance.neg{color:#E8A896;}
+  .sub-stats{display:flex;gap:24px;margin-top:16px;}
+  .sub-stat{font-size:13px;color:#B9C4C4;}
+  .sub-stat b{display:block;font-family:'Source Serif 4',serif;font-size:18px;color:var(--paper);font-weight:600;margin-top:2px;}
+  .sub-stat.income b{color:#9FD3B0;}
+  .sub-stat.expense b{color:#EFAF9E;}
+
+  #offline-badge{
+    display:none;
+    background:var(--brass);color:var(--ink);font-size:12px;font-weight:600;
+    text-align:center;padding:6px;letter-spacing:.02em;
+  }
+  body.is-offline #offline-badge{display:block;}
+
+  main{padding:22px 20px 0;}
+  .month-heading{
+    font-size:13px;color:var(--ink-soft);margin:22px 0 6px;padding-left:2px;
+  }
+  .month-heading:first-child{margin-top:0;}
+  .tx-list{border-top:1px solid var(--hair);}
+  .tx-row{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 2px;border-bottom:1px solid var(--hair);
+    cursor:pointer;
+  }
+  .tx-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--ink-soft);}
+  .tx-main{flex:1;min-width:0;}
+  .tx-desc{font-size:15px;font-weight:500;}
+  .tx-meta{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .tx-amount{font-family:'Source Serif 4',serif;font-size:16px;font-weight:600;white-space:nowrap;}
+  .tx-amount.income{color:var(--good);}
+  .tx-amount.expense{color:var(--bad);}
+
+  .empty-state{
+    text-align:center;padding:60px 20px;color:var(--ink-soft);
+  }
+  .empty-state h2{font-size:20px;margin-bottom:8px;font-weight:600;}
+  .empty-state p{font-size:14px;line-height:1.5;}
+
+  .fab{
+    position:fixed;right:20px;bottom:calc(24px + env(safe-area-inset-bottom));
+    width:58px;height:58px;border-radius:50%;
+    background:var(--ink);color:var(--paper);border:none;
+    font-size:28px;line-height:1;cursor:pointer;
+    box-shadow:0 6px 18px rgba(31,58,61,.35);
+  }
+
+  .sheet-backdrop{
+    position:fixed;inset:0;background:rgba(31,58,61,.45);
+    display:none;z-index:40;
+  }
+  .sheet-backdrop.open{display:block;}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;background:var(--paper-raised);
+    border-radius:18px 18px 0 0;padding:20px 20px calc(28px + env(safe-area-inset-bottom));
+    transform:translateY(100%);transition:transform .25s ease;z-index:41;
+    max-height:85vh;overflow-y:auto;
+  }
+  .sheet.open{transform:translateY(0);}
+  .sheet h2{font-size:19px;margin:0 0 18px;font-weight:600;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:5px;font-weight:500;}
+  .field input, .field select{
+    width:100%;padding:11px 12px;border:1px solid var(--hair);border-radius:8px;
+    font-size:15px;font-family:inherit;background:var(--paper);color:var(--ink);
+  }
+  .type-toggle{display:flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;}
+  .type-toggle button{
+    flex:1;padding:10px;border:none;background:var(--paper);font-size:14px;font-weight:500;
+    color:var(--ink-soft);cursor:pointer;
+  }
+  .type-toggle button.active.expense{background:var(--bad);color:#fff;}
+  .type-toggle button.active.income{background:var(--good);color:#fff;}
+  .row2{display:flex;gap:12px;}
+  .row2 .field{flex:1;}
+  .btn-primary{
+    width:100%;padding:14px;border:none;border-radius:8px;background:var(--ink);
+    color:var(--paper);font-size:15px;font-weight:600;cursor:pointer;margin-top:6px;
+  }
+  .btn-secondary{
+    width:100%;padding:13px;border:1px solid var(--hair);border-radius:8px;background:none;
+    color:var(--bad);font-size:14px;font-weight:500;cursor:pointer;margin-top:10px;
+  }
+  .btn-ghost{
+    width:100%;padding:13px;border:1px solid var(--hair);border-radius:8px;background:none;
+    color:var(--ink);font-size:14px;font-weight:500;cursor:pointer;margin-top:10px;
+  }
+  .sync-status{font-size:13px;color:var(--ink-soft);margin:14px 0;padding:12px;background:var(--paper);border-radius:8px;}
+  .sync-status.ok{color:var(--good);}
+  .sync-status.err{color:var(--bad);}
+  .hint{font-size:12px;color:var(--ink-soft);line-height:1.5;margin-top:4px;}
+  .hint a{color:var(--brass);}
+</style>
+</head>
+<body>
+
+<div id="offline-badge">Offline — changes save locally and sync later</div>
+
+<header>
+  <div class="brand">
+    <span class="brand-name">LEDGER</span>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
+  <div class="balance-label">Balance</div>
+  <div class="balance num" id="balanceEl">$0.00</div>
+  <div class="sub-stats">
+    <div class="sub-stat income">This month in<b id="incomeEl">$0.00</b></div>
+    <div class="sub-stat expense">This month out<b id="expenseEl">$0.00</b></div>
+  </div>
+</header>
+
+<main>
+  <div id="listContainer"></div>
+</main>
+
+<button class="fab" id="addBtn" aria-label="Add transaction">+</button>
+
+<!-- Add/Edit transaction sheet -->
+<div class="sheet-backdrop" id="txBackdrop"></div>
+<div class="sheet" id="txSheet">
+  <h2 id="txSheetTitle">New transaction</h2>
+  <div class="type-toggle" id="typeToggle">
+    <button type="button" class="active expense" data-type="expense">Витрата</button>
+    <button type="button" data-type="income">Дохід</button>
+  </div>
+  <div class="field" style="margin-top:14px;">
+    <label>Description</label>
+    <input type="text" id="txDesc" placeholder="Coffee, salary, rent…">
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Amount</label>
+      <input type="number" id="txAmount" inputmode="decimal" placeholder="0.00" step="0.01">
+    </div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="txDate">
+    </div>
+  </div>
+  <div class="field">
+    <label>Category</label>
+    <select id="txCategory">
+      <option>Продукти</option>
+      <option>Швидкий перекус</option>
+      <option>Розхідники</option>
+      <option>Гігієна</option>
+      <option>Кафе та ресторани</option>
+      <option>Транспорт</option>
+      <option>Комунальні та житло</option>
+      <option>Здоров'я та спорт</option>
+      <option>Підписки та сервіси</option>
+      <option>Одяг та взуття</option>
+      <option>Техніка та дім</option>
+      <option>Розваги</option>
+      <option>Інше</option>
+      <option>Борг</option>
+      <option>Додатковий дохід</option>
+    </select>
+  </div>
+  <button class="btn-primary" id="saveTxBtn">Save</button>
+  <button class="btn-secondary" id="deleteTxBtn" style="display:none;">Delete transaction</button>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet-backdrop" id="settingsBackdrop"></div>
+<div class="sheet" id="settingsSheet">
+  <h2>Settings &amp; Google Sheets sync</h2>
+
+  <div class="field">
+    <label>Google OAuth Client ID</label>
+    <input type="text" id="clientIdInput" placeholder="xxxx.apps.googleusercontent.com">
+    <p class="hint">Create one free in Google Cloud Console. Tap "How do I get this?" below for steps.</p>
+  </div>
+  <div class="field">
+    <label>Spreadsheet ID (leave blank to create a new one)</label>
+    <input type="text" id="sheetIdInput" placeholder="Optional">
+  </div>
+  <div class="field">
+    <label>Sheet tab name</label>
+    <input type="text" id="sheetTabInput" placeholder="e.g. Облік витрат і доходів V7">
+    <p class="hint">This must match an existing tab in that spreadsheet exactly, with columns in the order: Дата, Опис, Категорія, Сума, Тип.</p>
+  </div>
+
+  <button class="btn-ghost" id="connectBtn">Connect Google account</button>
+  <button class="btn-primary" id="syncNowBtn">Sync now</button>
+  <div class="sync-status" id="syncStatus">Not connected yet.</div>
+  <p class="hint">Sync only adds new rows to your sheet and pulls in rows you don't have locally yet — it never overwrites or deletes anything already in your spreadsheet, so your budget tabs stay untouched.</p>
+
+  <button class="btn-ghost" id="howToBtn">How do I get a Client ID?</button>
+  <button class="btn-secondary" id="wipeBtn">Erase all local data</button>
+</div>
+
+<div class="sheet-backdrop" id="howtoBackdrop"></div>
+<div class="sheet" id="howtoSheet">
+  <h2>Setting up Google Sheets sync</h2>
+  <p class="hint" style="font-size:13px;">
+    1. Go to console.cloud.google.com and create a project.<br><br>
+    2. APIs &amp; Services → Library → enable "Google Sheets API".<br><br>
+    3. APIs &amp; Services → OAuth consent screen → set it up (External, add your own email as a test user).<br><br>
+    4. APIs &amp; Services → Credentials → Create Credentials → OAuth client ID → type "Web application".<br><br>
+    5. Under "Authorized JavaScript origins" add the exact URL this app is hosted at (e.g. https://yourname.github.io).<br><br>
+    6. Copy the Client ID it gives you and paste it into Settings here.<br><br>
+    This step only needs doing once. It's required because Google needs to know which site is allowed to ask for permission to read/write your Sheets.
+  </p>
+  <button class="btn-ghost" id="closeHowto">Close</button>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/* ---------- storage ---------- */
+const STORE_KEY = 'ledger_transactions_v1';
+const SETTINGS_KEY = 'ledger_settings_v1';
+
+function loadTx(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }catch(e){ return []; } }
+function saveTx(list){ localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
+function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; } }
+function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+
+let transactions = loadTx();
+let settings = loadSettings();
+if(transactions.length === 0 && !settings.seeded){
+  transactions = buildSeedTransactions();
+  saveTx(transactions);
+  settings.seeded = true;
+  settings.sheetId = settings.sheetId || DEFAULT_SHEET_ID;
+  settings.sheetTab = settings.sheetTab || DEFAULT_SHEET_TAB;
+  saveSettings(settings);
+}
+let editingId = null;
+let accessToken = null;
+let tokenClient = null;
+
+/* ---------- helpers ---------- */
+function uid(){ return 't' + Date.now() + Math.random().toString(36).slice(2,8); }
+function fmtMoney(n){
+  const sign = n < 0 ? '-' : '';
+  return sign + new Intl.NumberFormat('uk-UA', {maximumFractionDigits:2}).format(Math.abs(n)) + ' ₴';
+}
+// Stable id derived from row content, so re-pulling the same sheet row never creates a duplicate.
+function stableId(date, desc, category, amount, type){
+  const raw = `${date}|${desc}|${category}|${amount}|${type}`;
+  try{ return 'r' + btoa(unescape(encodeURIComponent(raw))).replace(/[^a-zA-Z0-9]/g,'').slice(0,24); }
+  catch(e){ return 'r' + raw.length + '_' + amount; }
+}
+const DEFAULT_SHEET_ID = '1CWO0pNMC6jNt8dimmeOWwwtrVSWCG9CTKUGWgZH7FU4';
+const DEFAULT_SHEET_TAB = 'Облік витрат і доходів V7';
+const SEED_TRANSACTIONS_RAW = [
+["2026-08-28","Нульовий день privat","Додатковий дохід",3300,"Дохід"],
+["2026-08-28","Нульовий день pivdenniy","Додатковий дохід",6133,"Дохід"],
+["2026-08-29","Готівка","Додатковий дохід",2250,"Дохід"],
+["2026-08-29","АТБ продукти додому + сирок+кокакола","Продукти",627,"Витрата"],
+["2026-08-30","Два кроненбурги + хрус тім","Кафе та ресторани",143,"Витрата"],
+["2026-08-30","Чарка до свята, гараж нульовка(пити хотілось пизда)","Швидкий перекус",53,"Витрата"],
+["2026-08-30","Магазинчик біля роботи","Швидкий перекус",170,"Витрата"],
+["2026-08-31","Фанта","Швидкий перекус",30,"Витрата"],
+["2026-08-31","Atb маківник + кола зеро","Швидкий перекус",65,"Витрата"],
+["2026-08-31","Атб моршинська","Продукти",30,"Витрата"],
+["2026-09-01","Сільпо , кава + вело","Швидкий перекус",263,"Витрата"],
+["2026-09-01","Сім доктор пепер","Швидкий перекус",57,"Витрата"],
+["2026-09-01","Кебаб пепсі","Швидкий перекус",60,"Витрата"],
+["2026-09-02","Магазинчик біля роботи, чіпбата, поляна, енергос","Швидкий перекус",175,"Витрата"],
+["2026-09-02","Епіцентр батончик, вода, вело","Швидкий перекус",296,"Витрата"],
+["2026-09-02","Jet","Транспорт",100,"Витрата"],
+["2026-09-03","OLX реклама на 7 днів","Підписки та сервіси",165,"Витрата"],
+["2026-09-03","Автомат кави кава","Швидкий перекус",55,"Витрата"],
+["2026-09-03","Магазинчик біля роботи","Швидкий перекус",170,"Витрата"],
+["2026-09-03","Алкашка кола зеро","Швидкий перекус",59,"Витрата"],
+["2026-09-03","Сільпо кава лате","Швидкий перекус",50,"Витрата"],
+["2026-09-03","Соц фонд виплата","Додатковий дохід",313,"Дохід"],
+["2026-09-03","Переказ в євро","Інше",1110,"Витрата"],
+["2026-09-03","Кеш дарунок","Додатковий дохід",2000,"Дохід"],
+["2026-09-04","Сімка кава","Швидкий перекус",55,"Витрата"],
+["2026-09-04","Магаз біля роботи чіабатти і вода","Швидкий перекус",175,"Витрата"],
+["2026-09-04","Atb перекус зал","Швидкий перекус",138,"Витрата"],
+["2026-09-04","Зарплата","Додатковий дохід",32000,"Дохід"],
+["2026-09-04","Епіцентр снюс і кола","Швидкий перекус",276,"Витрата"],
+["2026-09-05","Atb горілка, продукти","Продукти",546,"Витрата"],
+["2026-09-05","Правдоруб ковбаса","Продукти",127,"Витрата"],
+["2026-09-05","Випічка кава і булка з маком","Швидкий перекус",68,"Витрата"],
+["2026-09-05","Дулиба пиво і сіги","Продукти",579,"Витрата"],
+["2026-09-06","Atb продукти","Продукти",1883,"Витрата"],
+["2026-09-06","Аврора папір, антиперспірант, енергетик, батарейки","Гігієна",440,"Витрата"],
+["2026-09-06","Київстар","Підписки та сервіси",300,"Витрата"],
+["2026-09-06","Підписка гугл Ван doggernautik","Підписки та сервіси",220,"Витрата"],
+["2026-09-07","Сімі кава","Швидкий перекус",54,"Витрата"],
+["2026-09-07","Магаз біля роботи","Швидкий перекус",190,"Витрата"],
+["2026-09-08","Сіги + кава","Швидкий перекус",196,"Витрата"],
+["2026-09-08","Магаз біля роботи чіабата","Швидкий перекус",195,"Витрата"],
+["2026-09-08","Bolt","Транспорт",378,"Витрата"],
+["2026-09-08","Кола і снюс","Швидкий перекус",262,"Витрата"],
+["2026-09-08","Bolt","Транспорт",100,"Витрата"],
+["2026-09-09","Сімі кава","Швидкий перекус",54,"Витрата"],
+["2026-09-09","Магаз біля роботи","Швидкий перекус",200,"Витрата"],
+["2026-09-09","Atb","Швидкий перекус",93,"Витрата"],
+["2026-09-10","Сімі","Швидкий перекус",84,"Витрата"],
+["2026-09-10","Cimi cofe","Швидкий перекус",54,"Витрата"],
+["2026-09-10","Вивіз Сміття","Підписки та сервіси",211,"Витрата"],
+["2026-09-10","Чарка до свята, Снюс","Швидкий перекус",219,"Витрата"],
+["2026-09-10","Оренда + комуналка","Комунальні та житло",15805,"Витрата"],
+["2026-09-11","Кофе автомат","Швидкий перекус",55,"Витрата"],
+["2026-09-11","Магазинчик біля роботи","Швидкий перекус",200,"Витрата"],
+["2026-09-11","Виплата обідів кеш","Додатковий дохід",600,"Дохід"],
+["2026-09-11","Atb","Швидкий перекус",105,"Витрата"],
+["2026-09-11","Velo","Швидкий перекус",230,"Витрата"],
+["2026-09-11","Чарка, пиво","Кафе та ресторани",65,"Витрата"],
+["2026-09-12","Олх реклама","Комунальні та житло",135,"Витрата"],
+["2026-09-12","Сімі","Швидкий перекус",68,"Витрата"],
+["2026-09-12","Чарка до свята, кока кола","Швидкий перекус",56,"Витрата"],
+["2026-09-12","Atb","Продукти",240,"Витрата"],
+["2026-09-12","Сімейна пекарня","Швидкий перекус",97,"Витрата"]
+];
+function buildSeedTransactions(){
+  return SEED_TRANSACTIONS_RAW.map(r=>{
+    const [date, desc, category, amount, typeUk] = r;
+    const type = typeUk === 'Дохід' ? 'income' : 'expense';
+    return { id: stableId(date, desc, category, amount, typeUk), date, desc, category, amount, type, updatedAt: Date.now() };
+  });
+}
+function monthKey(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleString(undefined,{month:'long', year:'numeric'});
+}
+function todayStr(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+/* ---------- render ---------- */
+function render(){
+  const list = [...transactions].sort((a,b)=> b.date.localeCompare(a.date) || b.updatedAt-a.updatedAt);
+  let balance = 0, monthIncome = 0, monthExpense = 0;
+  const now = new Date();
+  const curMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+
+  list.forEach(t=>{
+    const signed = t.type === 'income' ? t.amount : -t.amount;
+    balance += signed;
+    if(t.date.startsWith(curMonth)){
+      if(t.type==='income') monthIncome += t.amount; else monthExpense += t.amount;
+    }
+  });
+
+  document.getElementById('balanceEl').textContent = fmtMoney(balance);
+  document.getElementById('balanceEl').classList.toggle('neg', balance < 0);
+  document.getElementById('incomeEl').textContent = fmtMoney(monthIncome);
+  document.getElementById('expenseEl').textContent = fmtMoney(monthExpense);
+
+  const container = document.getElementById('listContainer');
+  container.innerHTML = '';
+
+  if(list.length === 0){
+    container.innerHTML = '<div class="empty-state"><h2>No transactions yet</h2><p>Tap the + button to log your first income or expense.</p></div>';
+    return;
+  }
+
+  let lastMonth = null;
+  let ul = null;
+  list.forEach(t=>{
+    const mk = monthKey(t.date);
+    if(mk !== lastMonth){
+      const h = document.createElement('div');
+      h.className = 'month-heading';
+      h.textContent = mk;
+      container.appendChild(h);
+      ul = document.createElement('div');
+      ul.className = 'tx-list';
+      container.appendChild(ul);
+      lastMonth = mk;
+    }
+    const row = document.createElement('div');
+    row.className = 'tx-row';
+    row.innerHTML = `
+      <div class="tx-dot" style="background:${t.type==='income' ? 'var(--good)' : 'var(--ink-soft)'}"></div>
+      <div class="tx-main">
+        <div class="tx-desc">${escapeHtml(t.desc || t.category)}</div>
+        <div class="tx-meta">${t.category} · ${t.date}</div>
+      </div>
+      <div class="tx-amount ${t.type}">${t.type==='income'?'+':'-'}${fmtMoney(Math.abs(t.amount))}</div>
+    `;
+    row.addEventListener('click', ()=> openTxSheet(t));
+    ul.appendChild(row);
+  });
+}
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/* ---------- add/edit sheet ---------- */
+const txBackdrop = document.getElementById('txBackdrop');
+const txSheet = document.getElementById('txSheet');
+let currentType = 'expense';
+
+function openTxSheet(tx){
+  editingId = tx ? tx.id : null;
+  document.getElementById('txSheetTitle').textContent = tx ? 'Edit transaction' : 'New transaction';
+  document.getElementById('txDesc').value = tx ? tx.desc : '';
+  document.getElementById('txAmount').value = tx ? tx.amount : '';
+  document.getElementById('txDate').value = tx ? tx.date : todayStr();
+  document.getElementById('txCategory').value = tx ? tx.category : 'Продукти';
+  document.getElementById('deleteTxBtn').style.display = tx ? 'block' : 'none';
+  setType(tx ? tx.type : 'expense');
+  txBackdrop.classList.add('open');
+  txSheet.classList.add('open');
+}
+function closeTxSheet(){
+  txBackdrop.classList.remove('open');
+  txSheet.classList.remove('open');
+  editingId = null;
+}
+function setType(type){
+  currentType = type;
+  document.querySelectorAll('#typeToggle button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.type === type);
+  });
+}
+document.getElementById('typeToggle').addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(btn) setType(btn.dataset.type);
+});
+document.getElementById('addBtn').addEventListener('click', ()=> openTxSheet(null));
+txBackdrop.addEventListener('click', closeTxSheet);
+
+document.getElementById('saveTxBtn').addEventListener('click', ()=>{
+  const desc = document.getElementById('txDesc').value.trim();
+  const amount = parseFloat(document.getElementById('txAmount').value);
+  const date = document.getElementById('txDate').value || todayStr();
+  const category = document.getElementById('txCategory').value;
+  if(!amount || amount <= 0){ alert('Enter an amount greater than 0.'); return; }
+
+  if(editingId){
+    const t = transactions.find(x=>x.id===editingId);
+    Object.assign(t, {desc, amount, date, category, type: currentType, updatedAt: Date.now()});
+  } else {
+    transactions.push({ id: uid(), desc, amount, date, category, type: currentType, updatedAt: Date.now() });
+  }
+  saveTx(transactions);
+  render();
+  closeTxSheet();
+});
+document.getElementById('deleteTxBtn').addEventListener('click', ()=>{
+  transactions = transactions.filter(t=>t.id !== editingId);
+  saveTx(transactions);
+  render();
+  closeTxSheet();
+});
+
+/* ---------- settings sheet ---------- */
+const settingsBackdrop = document.getElementById('settingsBackdrop');
+const settingsSheet = document.getElementById('settingsSheet');
+document.getElementById('settingsBtn').addEventListener('click', ()=>{
+  document.getElementById('clientIdInput').value = settings.clientId || '';
+  document.getElementById('sheetIdInput').value = settings.sheetId || DEFAULT_SHEET_ID;
+  document.getElementById('sheetTabInput').value = settings.sheetTab || DEFAULT_SHEET_TAB;
+  updateSyncStatus();
+  settingsBackdrop.classList.add('open');
+  settingsSheet.classList.add('open');
+});
+settingsBackdrop.addEventListener('click', ()=>{
+  settingsBackdrop.classList.remove('open');
+  settingsSheet.classList.remove('open');
+});
+
+const howtoBackdrop = document.getElementById('howtoBackdrop');
+const howtoSheet = document.getElementById('howtoSheet');
+document.getElementById('howToBtn').addEventListener('click', ()=>{
+  howtoBackdrop.classList.add('open'); howtoSheet.classList.add('open');
+});
+document.getElementById('closeHowto').addEventListener('click', ()=>{
+  howtoBackdrop.classList.remove('open'); howtoSheet.classList.remove('open');
+});
+howtoBackdrop.addEventListener('click', ()=>{
+  howtoBackdrop.classList.remove('open'); howtoSheet.classList.remove('open');
+});
+
+document.getElementById('wipeBtn').addEventListener('click', ()=>{
+  if(confirm('This deletes every transaction stored on this phone. Continue?')){
+    transactions = [];
+    saveTx(transactions);
+    render();
+  }
+});
+
+function updateSyncStatus(msg, kind){
+  const el = document.getElementById('syncStatus');
+  if(msg){
+    el.textContent = msg;
+    el.className = 'sync-status' + (kind ? ' '+kind : '');
+    return;
+  }
+  if(accessToken) el.textContent = 'Connected. Last sync: ' + (settings.lastSync ? new Date(settings.lastSync).toLocaleString() : 'never');
+  else el.textContent = settings.clientId ? 'Not connected — tap "Connect Google account".' : 'Enter a Client ID above to begin.';
+  el.className = 'sync-status';
+}
+
+/* ---------- Google Sheets sync ---------- */
+document.getElementById('connectBtn').addEventListener('click', ()=>{
+  const clientId = document.getElementById('clientIdInput').value.trim();
+  if(!clientId){ alert('Paste your Google OAuth Client ID first.'); return; }
+  settings.clientId = clientId;
+  settings.sheetId = document.getElementById('sheetIdInput').value.trim();
+  settings.sheetTab = document.getElementById('sheetTabInput').value.trim();
+  saveSettings(settings);
+
+  if(typeof google === 'undefined' || !google.accounts){
+    updateSyncStatus('Google sign-in script did not load. Check your connection.', 'err');
+    return;
+  }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    callback: (resp)=>{
+      if(resp.error){ updateSyncStatus('Sign-in failed: ' + resp.error, 'err'); return; }
+      accessToken = resp.access_token;
+      updateSyncStatus('Connected. Tap "Sync now" to push your data.', 'ok');
+    }
+  });
+  tokenClient.requestAccessToken();
+});
+
+async function ensureSheet(){
+  if(settings.sheetId && settings.sheetTab) return;
+  // No existing sheet given — create a fresh one with the same column layout.
+  const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      properties: { title: 'Ledger data' },
+      sheets: [{ properties: { title: 'Ledger' } }]
+    })
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error?.message || 'Could not create spreadsheet');
+  settings.sheetId = data.spreadsheetId;
+  settings.sheetTab = 'Ledger';
+  saveSettings(settings);
+  document.getElementById('sheetIdInput').value = settings.sheetId;
+  document.getElementById('sheetTabInput').value = settings.sheetTab;
+  // write header row
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${settings.sheetId}/values/${encodeURIComponent("'Ledger'!A1:E1")}?valueInputOption=RAW`, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [['Дата','Опис','Категорія','Сума','Тип']] })
+  });
+}
+
+function rangeFor(tab, suffix){
+  return encodeURIComponent(`'${tab}'!${suffix}`);
+}
+
+async function fetchRemote(){
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${settings.sheetId}/values/${rangeFor(settings.sheetTab, 'A2:E')}`, {
+    headers: { 'Authorization': 'Bearer ' + accessToken }
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error?.message || 'Could not read that sheet tab — check the tab name.');
+  const rows = data.values || [];
+  return rows.filter(r => r && r[0]).map(r => {
+    const date = String(r[0]).slice(0,10);
+    const desc = r[1] || '';
+    const category = r[2] || 'Інше';
+    const amount = parseFloat(String(r[3]||'0').replace(',', '.').replace(/[^\d.-]/g,'')) || 0;
+    const typeUk = r[4] || 'Витрата';
+    const type = typeUk === 'Дохід' ? 'income' : 'expense';
+    return { id: stableId(date, desc, category, amount, typeUk), date, desc, category, amount, type, updatedAt: Date.now() };
+  });
+}
+
+// Appends ONLY the given transactions as new rows — never touches existing rows or other tabs.
+async function appendRemote(list){
+  if(list.length === 0) return;
+  const rows = list.map(t => [t.date, t.desc||'', t.category, t.amount, t.type==='income' ? 'Дохід' : 'Витрата']);
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${settings.sheetId}/values/${rangeFor(settings.sheetTab, 'A:E')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: rows })
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error?.message || 'Could not add rows to the sheet.');
+}
+
+document.getElementById('syncNowBtn').addEventListener('click', async ()=>{
+  if(!navigator.onLine){ updateSyncStatus("You're offline — connect to the internet to sync.", 'err'); return; }
+  if(!accessToken){ updateSyncStatus('Tap "Connect Google account" first.', 'err'); return; }
+  updateSyncStatus('Syncing…');
+  try{
+    await ensureSheet();
+    const remote = await fetchRemote();
+    const localIds = new Set(transactions.map(t=>t.id));
+    const remoteIds = new Set(remote.map(t=>t.id));
+
+    // Pull in rows that exist in the sheet but not locally yet.
+    const newFromRemote = remote.filter(r => !localIds.has(r.id));
+    transactions = transactions.concat(newFromRemote);
+    saveTx(transactions);
+
+    // Push local rows that aren't in the sheet yet (append-only, nothing overwritten).
+    const newFromLocal = transactions.filter(t => !remoteIds.has(t.id));
+    await appendRemote(newFromLocal);
+
+    settings.lastSync = Date.now();
+    saveSettings(settings);
+    render();
+    updateSyncStatus(`Synced — added ${newFromRemote.length} from sheet, sent ${newFromLocal.length} to sheet.`, 'ok');
+  }catch(err){
+    updateSyncStatus('Sync failed: ' + err.message, 'err');
+  }
+});
+
+/* ---------- offline indicator ---------- */
+function updateOnlineState(){
+  document.body.classList.toggle('is-offline', !navigator.onLine);
+}
+window.addEventListener('online', updateOnlineState);
+window.addEventListener('offline', updateOnlineState);
+updateOnlineState();
+
+/* ---------- service worker ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+render();
+</script>
+</body>
+</html>
