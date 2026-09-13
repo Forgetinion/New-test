@@ -258,6 +258,17 @@
     <input type="text" id="sheetTabInput" placeholder="e.g. Облік витрат і доходів V7">
     <p class="hint">This must match an existing tab in that spreadsheet exactly, with columns in the order: Дата, Опис, Категорія, Сума, Тип.</p>
   </div>
+  <div class="row2">
+    <div class="field">
+      <label>Category-list tab name</label>
+      <input type="text" id="categoryListTabInput" placeholder="e.g. list of categories">
+    </div>
+    <div class="field" style="max-width:90px;">
+      <label>Column</label>
+      <input type="text" id="categoryListColumnInput" placeholder="A" maxlength="2">
+    </div>
+  </div>
+  <p class="hint">When you add a new category in the app, it's automatically appended here too — so it shows up in your sheet's dropdown validation.</p>
 
   <button class="btn-ghost" id="connectBtn">Connect Google account</button>
   <button class="btn-primary" id="syncNowBtn">Sync now</button>
@@ -326,6 +337,15 @@ if(settings.totalsVisible === undefined){
 }
 if(!settings.customCategories){
   settings.customCategories = [];
+}
+if(!settings.categoryListTab){
+  settings.categoryListTab = 'list of categories';
+}
+if(!settings.categoryListColumn){
+  settings.categoryListColumn = 'A';
+}
+if(!settings.customCategoriesPushed){
+  settings.customCategoriesPushed = {};
 }
 const INCOME_CATEGORY = 'Додатковий дохід';
 function dropdownCategories(){ return CATEGORIES.concat([INCOME_CATEGORY], settings.customCategories); }
@@ -477,6 +497,10 @@ txCategorySelect.addEventListener('change', ()=>{
   if(!settings.customCategories.includes(name)){
     settings.customCategories.push(name);
     saveSettings(settings);
+    // Try to add it to the sheet's category-list tab right away if we're connected; otherwise it queues for the next sync.
+    if(accessToken && navigator.onLine){
+      appendCategoryToSheet(name).catch(()=>{ /* stays queued, next sync retries */ });
+    }
   }
   populateCategorySelect(name);
 });
@@ -542,6 +566,8 @@ document.getElementById('settingsBtn').addEventListener('click', ()=>{
   document.getElementById('clientIdInput').value = settings.clientId || '';
   document.getElementById('sheetIdInput').value = settings.sheetId || '';
   document.getElementById('sheetTabInput').value = settings.sheetTab || DEFAULT_SHEET_TAB;
+  document.getElementById('categoryListTabInput').value = settings.categoryListTab || '';
+  document.getElementById('categoryListColumnInput').value = settings.categoryListColumn || 'A';
   updateSyncStatus();
   settingsBackdrop.classList.add('open');
   settingsSheet.classList.add('open');
@@ -630,6 +656,8 @@ document.getElementById('connectBtn').addEventListener('click', ()=>{
   settings.clientId = clientId;
   settings.sheetId = document.getElementById('sheetIdInput').value.trim();
   settings.sheetTab = document.getElementById('sheetTabInput').value.trim();
+  settings.categoryListTab = document.getElementById('categoryListTabInput').value.trim();
+  settings.categoryListColumn = (document.getElementById('categoryListColumnInput').value.trim() || 'A').toUpperCase();
   saveSettings(settings);
 
   if(typeof google === 'undefined' || !google.accounts){
@@ -709,6 +737,30 @@ async function appendRemote(list){
   if(!res.ok) throw new Error(data.error?.message || 'Could not add rows to the sheet.');
 }
 
+// Appends a single new category name to the dedicated category-list tab/column, if configured.
+async function appendCategoryToSheet(name){
+  if(!accessToken || !settings.sheetId || !settings.categoryListTab) return false;
+  const col = settings.categoryListColumn || 'A';
+  const range = rangeFor(settings.categoryListTab, `${col}:${col}`);
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${settings.sheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [[name]] })
+  });
+  if(!res.ok) return false;
+  settings.customCategoriesPushed[name] = true;
+  saveSettings(settings);
+  return true;
+}
+
+// Catches up any categories added while offline / not yet connected.
+async function pushPendingCategories(){
+  const pending = settings.customCategories.filter(c => !settings.customCategoriesPushed[c]);
+  for(const name of pending){
+    try{ await appendCategoryToSheet(name); }catch(e){ /* leave unpushed, retry next sync */ }
+  }
+}
+
 document.getElementById('syncNowBtn').addEventListener('click', async ()=>{
   if(!navigator.onLine){ updateSyncStatus("You're offline — connect to the internet to sync.", 'err'); return; }
   if(!accessToken){ updateSyncStatus('Tap "Connect Google account" first.', 'err'); return; }
@@ -727,6 +779,7 @@ document.getElementById('syncNowBtn').addEventListener('click', async ()=>{
     // Push local rows that aren't in the sheet yet (append-only, nothing overwritten).
     const newFromLocal = transactions.filter(t => !remoteIds.has(t.id));
     await appendRemote(newFromLocal);
+    await pushPendingCategories();
 
     settings.lastSync = Date.now();
     saveSettings(settings);
