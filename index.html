@@ -541,12 +541,17 @@ document.getElementById('saveTxBtn').addEventListener('click', ()=>{
   const date = document.getElementById('txDate').value || todayStr();
   const category = document.getElementById('txCategory').value;
   if(!amount || amount <= 0){ alert('Enter an amount greater than 0.'); return; }
+  const typeUk = currentType === 'income' ? 'Дохід' : 'Витрата';
+  // Use a content-based id (not a random one) so that once this row is synced to the sheet,
+  // re-reading it back computes the exact same id — otherwise sync can't tell "already synced"
+  // from "new", and re-appends the same transaction every time.
+  const newId = stableId(date, desc, category, amount, typeUk);
 
   if(editingId){
     const t = transactions.find(x=>x.id===editingId);
-    Object.assign(t, {desc, amount, date, category, type: currentType, updatedAt: Date.now()});
+    Object.assign(t, {id: newId, desc, amount, date, category, type: currentType, updatedAt: Date.now()});
   } else {
-    transactions.push({ id: uid(), desc, amount, date, category, type: currentType, updatedAt: Date.now() });
+    transactions.push({ id: newId, desc, amount, date, category, type: currentType, updatedAt: Date.now() });
   }
   saveTx(transactions);
   render();
