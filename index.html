@@ -323,6 +323,20 @@ const DEFAULT_BUDGETS = {
   'Техніка та дім': 0, 'Розваги': 0, 'Інше': 0, 'Борг': 0
 };
 let transactions = loadTx();
+// One-time migration: transactions created before this fix carry a random id instead of a
+// content-based one, which made sync think they were never-before-seen on every single sync
+// and re-append them endlessly. Recompute every transaction's id from its own content so it
+// matches exactly what re-reading that same row from the sheet will produce.
+(function migrateIds(){
+  let changed = false;
+  transactions = transactions.map(t=>{
+    const typeUk = t.type === 'income' ? 'Дохід' : 'Витрата';
+    const correctId = stableId(t.date, t.desc, t.category, t.amount, typeUk);
+    if(t.id !== correctId){ changed = true; return { ...t, id: correctId }; }
+    return t;
+  });
+  if(changed) saveTx(transactions);
+})();
 let settings = loadSettings();
 if(!settings.sheetTab){
   settings.sheetTab = DEFAULT_SHEET_TAB;
