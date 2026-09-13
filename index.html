@@ -115,8 +115,13 @@
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:5px;font-weight:500;}
   .field input, .field select{
-    width:100%;padding:11px 12px;border:1px solid var(--hair);border-radius:8px;
+    width:100%;height:46px;padding:0 12px;border:1px solid var(--hair);border-radius:8px;
     font-size:15px;font-family:inherit;background:var(--paper);color:var(--ink);
+    -webkit-appearance:none;appearance:none;box-sizing:border-box;
+  }
+  .field input[type="date"]{
+    /* iOS renders date inputs with their own intrinsic height that ignores padding-based sizing */
+    line-height:46px;padding:0 10px;
   }
   .type-toggle{display:flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;}
   .type-toggle button{
@@ -144,6 +149,25 @@
   .sync-status.err{color:var(--bad);}
   .hint{font-size:12px;color:var(--ink-soft);line-height:1.5;margin-top:4px;}
   .hint a{color:var(--brass);}
+
+  .budget-heading{
+    font-size:13px;color:var(--ink-soft);margin:0 0 12px;padding-left:2px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  #budgetSection:not(:empty){margin-bottom:26px;padding-bottom:22px;border-bottom:1px solid var(--hair);}
+  .budget-row{margin-bottom:16px;}
+  .budget-row-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;margin-bottom:6px;}
+  .budget-row-top .cat{font-weight:500;}
+  .budget-row-top .amt{color:var(--ink-soft);font-variant-numeric:tabular-nums;}
+  .budget-bar-track{height:8px;border-radius:4px;background:var(--hair);overflow:hidden;}
+  .budget-bar-fill{height:100%;border-radius:4px;background:var(--good);transition:width .3s ease;}
+  .budget-bar-fill.warn{background:var(--brass);}
+  .budget-bar-fill.over{background:var(--bad);}
+  .icon-btn.active{color:var(--brass);}
+  .budget-empty{font-size:13px;color:var(--ink-soft);padding:4px 2px 4px;}
+  .budgets-field-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .budgets-field-row label{flex:1;font-size:13px;}
+  .budgets-field-row input{width:100px;padding:8px 10px;border:1px solid var(--hair);border-radius:8px;font-size:14px;background:var(--paper);color:var(--ink);text-align:right;}
 </style>
 </head>
 <body>
@@ -153,22 +177,33 @@
 <header>
   <div class="brand">
     <span class="brand-name">LEDGER</span>
-    <button class="icon-btn" id="settingsBtn" aria-label="Settings">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
+    <div style="display:flex;gap:2px;">
+      <button class="icon-btn" id="toggleTotalsBtn" aria-label="Show totals">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
   </div>
-  <div class="balance-label">Balance</div>
-  <div class="balance num" id="balanceEl">$0.00</div>
-  <div class="sub-stats">
-    <div class="sub-stat income">This month in<b id="incomeEl">$0.00</b></div>
-    <div class="sub-stat expense">This month out<b id="expenseEl">$0.00</b></div>
+  <div id="totalsPanel" style="display:none;">
+    <div class="balance-label">Balance</div>
+    <div class="balance num" id="balanceEl">$0.00</div>
+    <div class="sub-stats">
+      <div class="sub-stat income">This month in<b id="incomeEl">$0.00</b></div>
+      <div class="sub-stat expense">This month out<b id="expenseEl">$0.00</b></div>
+    </div>
   </div>
 </header>
 
 <main>
+  <div id="budgetSection"></div>
   <div id="listContainer"></div>
 </main>
 
@@ -180,7 +215,7 @@
   <h2 id="txSheetTitle">New transaction</h2>
   <div class="type-toggle" id="typeToggle">
     <button type="button" class="active expense" data-type="expense">Витрата</button>
-    <button type="button" data-type="income">Дохід</button>
+    <button type="button" class="income" data-type="income">Дохід</button>
   </div>
   <div class="field" style="margin-top:14px;">
     <label>Description</label>
@@ -198,23 +233,7 @@
   </div>
   <div class="field">
     <label>Category</label>
-    <select id="txCategory">
-      <option>Продукти</option>
-      <option>Швидкий перекус</option>
-      <option>Розхідники</option>
-      <option>Гігієна</option>
-      <option>Кафе та ресторани</option>
-      <option>Транспорт</option>
-      <option>Комунальні та житло</option>
-      <option>Здоров'я та спорт</option>
-      <option>Підписки та сервіси</option>
-      <option>Одяг та взуття</option>
-      <option>Техніка та дім</option>
-      <option>Розваги</option>
-      <option>Інше</option>
-      <option>Борг</option>
-      <option>Додатковий дохід</option>
-    </select>
+    <select id="txCategory"></select>
   </div>
   <button class="btn-primary" id="saveTxBtn">Save</button>
   <button class="btn-secondary" id="deleteTxBtn" style="display:none;">Delete transaction</button>
@@ -246,7 +265,16 @@
   <p class="hint">Sync only adds new rows to your sheet and pulls in rows you don't have locally yet — it never overwrites or deletes anything already in your spreadsheet, so your budget tabs stay untouched.</p>
 
   <button class="btn-ghost" id="howToBtn">How do I get a Client ID?</button>
+  <button class="btn-ghost" id="editBudgetsBtn">Edit monthly budgets</button>
   <button class="btn-secondary" id="wipeBtn">Erase all local data</button>
+</div>
+
+<div class="sheet-backdrop" id="budgetsBackdrop"></div>
+<div class="sheet" id="budgetsSheet">
+  <h2>Monthly budgets</h2>
+  <p class="hint" style="margin-bottom:14px;">Set a planned amount per category. Leave at 0 to hide a category's progress bar.</p>
+  <div id="budgetsFields"></div>
+  <button class="btn-primary" id="saveBudgetsBtn">Save budgets</button>
 </div>
 
 <div class="sheet-backdrop" id="howtoBackdrop"></div>
@@ -276,12 +304,32 @@ function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS_KE
 function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
 
 const DEFAULT_SHEET_TAB = 'Облік витрат і доходів V7';
+const CATEGORIES = ['Продукти','Швидкий перекус','Розхідники','Гігієна','Кафе та ресторани','Транспорт','Комунальні та житло',"Здоров'я та спорт",'Підписки та сервіси','Одяг та взуття','Техніка та дім','Розваги','Інше','Борг'];
+const DEFAULT_BUDGETS = {
+  'Продукти': 5000, 'Швидкий перекус': 6000, 'Розхідники': 0, 'Гігієна': 1000,
+  'Кафе та ресторани': 0, 'Транспорт': 1000, 'Комунальні та житло': 16000,
+  "Здоров'я та спорт": 0, 'Підписки та сервіси': 1000, 'Одяг та взуття': 1000,
+  'Техніка та дім': 0, 'Розваги': 0, 'Інше': 0, 'Борг': 0
+};
 let transactions = loadTx();
 let settings = loadSettings();
 if(!settings.sheetTab){
   settings.sheetTab = DEFAULT_SHEET_TAB;
   saveSettings(settings);
 }
+if(!settings.budgets){
+  settings.budgets = { ...DEFAULT_BUDGETS };
+  saveSettings(settings);
+}
+if(settings.totalsVisible === undefined){
+  settings.totalsVisible = false;
+}
+if(!settings.customCategories){
+  settings.customCategories = [];
+}
+const INCOME_CATEGORY = 'Додатковий дохід';
+function dropdownCategories(){ return CATEGORIES.concat([INCOME_CATEGORY], settings.customCategories); }
+function budgetCategories(){ return CATEGORIES.concat(settings.customCategories); }
 let editingId = null;
 let accessToken = null;
 let tokenClient = null;
@@ -328,6 +376,8 @@ function render(){
   document.getElementById('incomeEl').textContent = fmtMoney(monthIncome);
   document.getElementById('expenseEl').textContent = fmtMoney(monthExpense);
 
+  renderBudgets(curMonth);
+
   const container = document.getElementById('listContainer');
   container.innerHTML = '';
 
@@ -370,10 +420,66 @@ function escapeHtml(s){
   return d.innerHTML;
 }
 
+function renderBudgets(curMonth){
+  const spent = {};
+  transactions.forEach(t=>{
+    if(t.type === 'expense' && t.date.startsWith(curMonth)){
+      spent[t.category] = (spent[t.category] || 0) + t.amount;
+    }
+  });
+
+  const rows = budgetCategories()
+    .map(cat => ({ cat, planned: settings.budgets[cat] || 0, spent: spent[cat] || 0 }))
+    .filter(r => r.planned > 0 || r.spent > 0);
+
+  const el = document.getElementById('budgetSection');
+  if(rows.length === 0){
+    el.innerHTML = '';
+    return;
+  }
+
+  const rowsHtml = rows.map(r=>{
+    const pct = r.planned > 0 ? Math.min(100, (r.spent / r.planned) * 100) : 100;
+    const cls = r.planned === 0 ? 'over' : (r.spent > r.planned ? 'over' : (pct >= 80 ? 'warn' : ''));
+    const rightText = r.planned > 0
+      ? `${fmtMoney(r.spent)} / ${fmtMoney(r.planned)}`
+      : `${fmtMoney(r.spent)} · no budget set`;
+    return `
+      <div class="budget-row">
+        <div class="budget-row-top">
+          <span class="cat">${escapeHtml(r.cat)}</span>
+          <span class="amt">${rightText}</span>
+        </div>
+        <div class="budget-bar-track"><div class="budget-bar-fill ${cls}" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join('');
+
+  el.innerHTML = `<div class="budget-heading">Budgets this month</div>${rowsHtml}`;
+}
+
 /* ---------- add/edit sheet ---------- */
 const txBackdrop = document.getElementById('txBackdrop');
 const txSheet = document.getElementById('txSheet');
+const txCategorySelect = document.getElementById('txCategory');
 let currentType = 'expense';
+
+function populateCategorySelect(selected){
+  txCategorySelect.innerHTML = dropdownCategories()
+    .map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+    .join('') + `<option value="__new__">+ Add new category…</option>`;
+  txCategorySelect.value = selected && dropdownCategories().includes(selected) ? selected : 'Продукти';
+}
+txCategorySelect.addEventListener('change', ()=>{
+  if(txCategorySelect.value !== '__new__') return;
+  const name = (prompt('New category name:') || '').trim();
+  if(!name){ populateCategorySelect('Продукти'); return; }
+  if(!settings.customCategories.includes(name)){
+    settings.customCategories.push(name);
+    saveSettings(settings);
+  }
+  populateCategorySelect(name);
+});
 
 function openTxSheet(tx){
   editingId = tx ? tx.id : null;
@@ -381,7 +487,7 @@ function openTxSheet(tx){
   document.getElementById('txDesc').value = tx ? tx.desc : '';
   document.getElementById('txAmount').value = tx ? tx.amount : '';
   document.getElementById('txDate').value = tx ? tx.date : todayStr();
-  document.getElementById('txCategory').value = tx ? tx.category : 'Продукти';
+  populateCategorySelect(tx ? tx.category : 'Продукти');
   document.getElementById('deleteTxBtn').style.display = tx ? 'block' : 'none';
   setType(tx ? tx.type : 'expense');
   txBackdrop.classList.add('open');
@@ -455,6 +561,46 @@ document.getElementById('closeHowto').addEventListener('click', ()=>{
 });
 howtoBackdrop.addEventListener('click', ()=>{
   howtoBackdrop.classList.remove('open'); howtoSheet.classList.remove('open');
+});
+
+/* ---------- totals show/hide toggle ---------- */
+const totalsPanel = document.getElementById('totalsPanel');
+const toggleTotalsBtn = document.getElementById('toggleTotalsBtn');
+function applyTotalsVisibility(){
+  totalsPanel.style.display = settings.totalsVisible ? 'block' : 'none';
+  toggleTotalsBtn.classList.toggle('active', settings.totalsVisible);
+}
+toggleTotalsBtn.addEventListener('click', ()=>{
+  settings.totalsVisible = !settings.totalsVisible;
+  saveSettings(settings);
+  applyTotalsVisibility();
+});
+applyTotalsVisibility();
+
+/* ---------- budgets editor ---------- */
+const budgetsBackdrop = document.getElementById('budgetsBackdrop');
+const budgetsSheet = document.getElementById('budgetsSheet');
+document.getElementById('editBudgetsBtn').addEventListener('click', ()=>{
+  const wrap = document.getElementById('budgetsFields');
+  wrap.innerHTML = budgetCategories().map(cat => `
+    <div class="budgets-field-row">
+      <label>${escapeHtml(cat)}</label>
+      <input type="number" inputmode="decimal" step="1" data-cat="${escapeHtml(cat)}" value="${settings.budgets[cat] || 0}">
+    </div>
+  `).join('');
+  settingsBackdrop.classList.remove('open'); settingsSheet.classList.remove('open');
+  budgetsBackdrop.classList.add('open'); budgetsSheet.classList.add('open');
+});
+budgetsBackdrop.addEventListener('click', ()=>{
+  budgetsBackdrop.classList.remove('open'); budgetsSheet.classList.remove('open');
+});
+document.getElementById('saveBudgetsBtn').addEventListener('click', ()=>{
+  document.querySelectorAll('#budgetsFields input').forEach(inp=>{
+    settings.budgets[inp.dataset.cat] = parseFloat(inp.value) || 0;
+  });
+  saveSettings(settings);
+  budgetsBackdrop.classList.remove('open'); budgetsSheet.classList.remove('open');
+  render();
 });
 
 document.getElementById('wipeBtn').addEventListener('click', ()=>{
